@@ -247,90 +247,89 @@ def create_read_write_par(filename, parameters, ham_name):
 #endif
 """
 
-    f = open(filename, 'w', encoding='UTF-8')
-    for line in TEMPLATE.splitlines(keepends=True):
-        if '##NAMELIST##' in line:
-            for nlist_name, nlist in parameters.items():
-                s = '{}NAMELIST /{}/  '.format(INDENT*' ', nlist_name)
-                for par_name in nlist:
-                    par_name = par_name.split('(')[0]
-                    if len(s) < LINE_MAX:
-                        s = '{}{}, '.format(s, par_name)
-                    else:
-                        f.write('{}&\n'.format(s))
-                        s = '{}     &     {}, '.format(INDENT*' ', par_name)
-                f.write(s[:-2]+'\n')
-        elif '##PARAMETER_DEF##' in line:
-            for nlist_name, nlist in parameters.items():
-                f.write('{}!Parameters {}\n'.format(INDENT*' ', nlist_name))
-
-                names_len = _max_len(nlist)
-                # dtypes_str = [_dtype_name(par['value']) for
-                #               par_name, par in nlist.items()]
-                # dtypes_len = _max_len(dtypes_str)
-                pars_str = [_convert_par_to_str(par['value']) for
-                            par_name, par in nlist.items()]
-                pars_len = _max_len(pars_str)
-                # comments = [par[1] for par_name, par in nlist.items()]
-                # for i in range(len(nlist)):
-
-                for par_name, par in nlist.items():
-                    # s = '{}{} :: {} = {} !'.format(
-                    #     INDENT*' ',
-                    #     _dtype_name(par['value']).ljust(dtypes_len),
-                    #     par_name.ljust(names_len),
-                    #     _convert_par_to_str(par['value']).ljust(pars_len)
-                    #     )
-                    s = '{}{} = {} !'.format(
-                        INDENT*' ',
-                        par_name.ljust(names_len),
-                        _convert_par_to_str(par['value']).ljust(pars_len)
-                        )
-                    comment = par['comment'].split(' ')
-                    comment_indent = min(40, len(s)-2)
-                    for word in comment:
+    with open(filename, 'w', encoding='UTF-8') as f:
+        for line in TEMPLATE.splitlines(keepends=True):
+            if '##NAMELIST##' in line:
+                for nlist_name, nlist in parameters.items():
+                    s = '{}NAMELIST /{}/  '.format(INDENT*' ', nlist_name)
+                    for par_name in nlist:
+                        par_name = par_name.split('(')[0]
                         if len(s) < LINE_MAX:
-                            s = '{} {}'.format(s, word)
+                            s = '{}{}, '.format(s, par_name)
                         else:
-                            f.write('{} \n'.format(s))
-                            s = '{} ! {}'.format(comment_indent*' ', word)
-                    f.write(s)
-                    f.write('\n')
-        elif '##READ_VAR##' in line:
-            for nlist_name, nlist in parameters.items():
-                f.write('{}   REWIND(unit_para)\n'.format(INDENT*' '))
-                s = '{}   READ(unit_para, NML={})\n'.format(
-                    INDENT*' ', nlist_name)
-                f.write(s)
+                            f.write('{}&\n'.format(s))
+                            s = '{}     &     {}, '.format(INDENT*' ', par_name)
+                    f.write(s[:-2]+'\n')
+            elif '##PARAMETER_DEF##' in line:
+                for nlist_name, nlist in parameters.items():
+                    f.write('{}!Parameters {}\n'.format(INDENT*' ', nlist_name))
 
-        elif '##MPI_BCAST##' in line:
-            fstring = '{}CALL MPI_BCAST({},{:>3},{},0,Group_Comm,ierr)\n'
-            for nlist_name, nlist in parameters.items():
-                names_len = _max_len(nlist)
-                for par_name, par in nlist.items():
-                    s = fstring.format(
-                        INDENT*' ',
-                        par_name.split('(')[0].ljust(names_len),
-                        _get_mpi_len(par['value']),
-                        _get_mpi_dtype(par['value']),
-                        )
+                    names_len = _max_len(nlist)
+                    # dtypes_str = [_dtype_name(par['value']) for
+                    #               par_name, par in nlist.items()]
+                    # dtypes_len = _max_len(dtypes_str)
+                    pars_str = [_convert_par_to_str(par['value']) for
+                                par_name, par in nlist.items()]
+                    pars_len = _max_len(pars_str)
+                    # comments = [par[1] for par_name, par in nlist.items()]
+                    # for i in range(len(nlist)):
+
+                    for par_name, par in nlist.items():
+                        # s = '{}{} :: {} = {} !'.format(
+                        #     INDENT*' ',
+                        #     _dtype_name(par['value']).ljust(dtypes_len),
+                        #     par_name.ljust(names_len),
+                        #     _convert_par_to_str(par['value']).ljust(pars_len)
+                        #     )
+                        s = '{}{} = {} !'.format(
+                            INDENT*' ',
+                            par_name.ljust(names_len),
+                            _convert_par_to_str(par['value']).ljust(pars_len)
+                            )
+                        comment = par['comment'].split(' ')
+                        comment_indent = min(40, len(s)-2)
+                        for word in comment:
+                            if len(s) < LINE_MAX:
+                                s = '{} {}'.format(s, word)
+                            else:
+                                f.write('{} \n'.format(s))
+                                s = '{} ! {}'.format(comment_indent*' ', word)
+                        f.write(s)
+                        f.write('\n')
+            elif '##READ_VAR##' in line:
+                for nlist_name, nlist in parameters.items():
+                    f.write('{}   REWIND(unit_para)\n'.format(INDENT*' '))
+                    s = '{}   READ(unit_para, NML={})\n'.format(
+                        INDENT*' ', nlist_name)
                     f.write(s)
-        elif '##TEST_ATTRS##' in line:
-            for nlist_name, nlist in parameters.items():
-                s = """CALL h5lexists_f(group_id, "{}", link_exists, ierr)
+
+            elif '##MPI_BCAST##' in line:
+                fstring = '{}CALL MPI_BCAST({},{:>3},{},0,Group_Comm,ierr)\n'
+                for nlist_name, nlist in parameters.items():
+                    names_len = _max_len(nlist)
+                    for par_name, par in nlist.items():
+                        s = fstring.format(
+                            INDENT*' ',
+                            par_name.split('(')[0].ljust(names_len),
+                            _get_mpi_len(par['value']),
+                            _get_mpi_dtype(par['value']),
+                            )
+                        f.write(s)
+            elif '##TEST_ATTRS##' in line:
+                for nlist_name, nlist in parameters.items():
+                    s = """CALL h5lexists_f(group_id, "{}", link_exists, ierr)
                        if ( .not. link_exists ) then
                          call h5gcreate_f(group_id, "{}", group_id2, ierr)
                          call h5gclose_f(group_id2, ierr)
                        endif\n""".format(nlist_name.lower(), nlist_name.lower())
-                f.write(s)
-                for par_name, par in nlist.items():
-                    s = '{}call test_attribute(group_id, "{}", "{}", {}, ierr)\n'.format(
-                        INDENT*' ', nlist_name.lower(), par_name.lower(), par_name
-                        )
                     f.write(s)
-        else:
-            f.write(line.replace('##HAM_NAME##', ham_name))
-    f.close()
+                    for par_name, par in nlist.items():
+                        s = '{}call test_attribute(group_id, "{}", "{}", {}, ierr)\n'.format(
+                            INDENT*' ', nlist_name.lower(), par_name.lower(), par_name
+                            )
+                        f.write(s)
+            else:
+                f.write(line.replace('##HAM_NAME##', ham_name))
 
 
 def _to_value(dtype, value):
